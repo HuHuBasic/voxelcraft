@@ -14,7 +14,8 @@
 
   /* Nav */
   nav { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(15,25,35,0.95); backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,0.06); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:56px; }
-  nav .logo { font-size:20px; font-weight:800; color:var(--accent); }
+  nav .logo { font-size:20px; font-weight:800; color:var(--accent); display:flex; align-items:center; gap:8px; }
+  nav .logo::before { content:''; display:inline-block; width:28px; height:28px; border-radius:6px; background: linear-gradient(180deg, #5fa83a 30%, #7a5a3a 30%); border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 0 8px rgba(95,168,58,0.3); }
   nav .links { display:flex; gap:20px; }
   nav .links a { color:var(--sub); font-size:14px; transition:color .2s; }
   nav .links a:hover { color:#fff; }
@@ -167,7 +168,7 @@
       <div class="dl-card">
         <div class="dl-name">VoxelCraft</div>
         <div class="dl-ver">v1.6.0 · 游戏客户端</div>
-        <div class="dl-size">4.7 MB</div>
+        <div class="dl-size">5.7 MB</div>
         <a class="dl-btn" href="https://github.com/HuHuBasic/voxelcraft/releases/download/v1.2.0/VoxelCraft.apk">下载游戏</a>
       </div>
       <div class="dl-card server">
@@ -286,7 +287,7 @@
 </section>
 
 <footer>
-  <p>VoxelCraft 方块世界 &copy; 2026 · <a href="https://github.com/HuHuBasic/voxelcraft">GitHub</a> · 下载链接永久有效</p>
+  <p>VoxelCraft 方块世界 &copy; 2026 · Basic Hu · <a href="https://github.com/HuHuBasic/voxelcraft">GitHub</a> · 下载链接永久有效</p>
 </footer>
 
 </body>
