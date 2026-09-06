@@ -1,0 +1,11 @@
+[Unit]
+Description=VoxelCraft Server
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/voxelcraft-server
+ExecStart=/opt/voxelcraft-server/voxelcraft-server --no-open
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
