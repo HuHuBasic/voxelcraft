@@ -1,0 +1,16 @@
+{
+  "servers": [
+    {
+      "name": "VoxelCraft 官方大厅",
+      "url": "wss://basicgame.cc.cd",
+      "note": "官方公共服务器",
+      "official": true
+    },
+    {
+      "name": "VoxelCraft 备用(HTTP)",
+      "url": "ws://basicgame.cc.cd:8080",
+      "note": "官方备用地址",
+      "official": true
+    }
+  ]
+}
