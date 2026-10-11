@@ -106,23 +106,46 @@ func (s *GameServer) apiStatus(w http.ResponseWriter, r *http.Request) {
 	// 注意：publicPlayers() 内部会自行加锁，必须在本函数释放锁之后再调用
 	names := s.publicPlayers()
 
+	// 对外地址：优先用隧道公网地址（wss），否则局域网/公网 IP（ws）
+	lanURL := "ws://" + getLocalIP() + ":" + itoa(port)
+	publicURL := lanURL
+	tunnelURL := ""
+	tunnelStatus := "idle"
+	if tunnelMgr != nil {
+		ts := tunnelMgr.Status()
+		if u, ok := ts["publicURL"].(string); ok {
+			tunnelURL = u
+		}
+		if st, ok := ts["status"].(string); ok {
+			tunnelStatus = st
+		}
+		if tunnelURL != "" {
+			publicURL = tunnelURL
+		} else if pip := getPublicIP(); pip != "" {
+			publicURL = "ws://" + pip + ":" + itoa(port)
+		}
+	}
+
 	writeJSON(w, map[string]interface{}{
-		"ok":         true,
-		"running":    running,
-		"port":       port,
-		"players":    count,
-		"playerList": names,
-		"uptime":     uptime,
-		"version":    serverVersion,
-		"protocol":   protocolVersion,
-		"serverName": serverName,
-		"motd":       motd,
-		"maxPlayers": maxP,
-		"lanIP":      getLocalIP(),
-		"publicIP":   getPublicIP(),
-		"autostart":  isAutostartEnabled(),
-		"wsURL":      "ws://" + getLocalIP() + ":" + itoa(port),
-		"compatible": true,
+		"ok":           true,
+		"running":      running,
+		"port":         port,
+		"players":      count,
+		"playerList":   names,
+		"uptime":       uptime,
+		"version":      serverVersion,
+		"protocol":     protocolVersion,
+		"serverName":   serverName,
+		"motd":         motd,
+		"maxPlayers":   maxP,
+		"lanIP":        getLocalIP(),
+		"publicIP":     getPublicIP(),
+		"autostart":    isAutostartEnabled(),
+		"wsURL":        lanURL,
+		"publicURL":    publicURL,
+		"tunnelURL":    tunnelURL,
+		"tunnelStatus": tunnelStatus,
+		"compatible":   true,
 	})
 }
 
@@ -202,6 +225,9 @@ func (s *GameServer) apiSettings(w http.ResponseWriter, r *http.Request) {
 	if body.Port > 0 && body.Port != s.port {
 		s.port = body.Port
 		portChanged = true
+		if tunnelMgr != nil {
+			tunnelMgr.port = body.Port
+		}
 	}
 	s.mu.Unlock()
 	s.saveConfig()
