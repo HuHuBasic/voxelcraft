@@ -85,6 +85,35 @@
     <h2>实时日志</h2>
     <div id="logs"></div>
   </div>
+
+  <div class="card">
+    <h2>公网穿透（无需端口映射）</h2>
+    <div class="row"><span>状态</span><b id="tnStatus">—</b></div>
+    <div class="row"><span>公网地址</span><b class="mono" id="tnURL">未开启</b><span class="copy" onclick="copy('tnURL')">复制</span></div>
+    <div class="btns">
+      <button class="green" onclick="startQuick()">开启快速隧道</button>
+      <button class="red" onclick="stopTunnel()">停止</button>
+    </div>
+    <label>命名隧道 Token（绑定你自己的域名，可选）</label>
+    <input id="tnToken" placeholder="Cloudflare 隧道 Token（在 Cloudflare 控制台创建）">
+    <label>你的域名（在 Cloudflare 中为该隧道配置的 hostname）</label>
+    <input id="tnHost" placeholder="例如 play.basicgame.cc.cd">
+    <div class="btns"><button onclick="startNamed()">启动命名隧道（绑域名）</button></div>
+    <div style="color:var(--mut);font-size:11px;margin-top:8px;line-height:1.5;">
+      快速隧道：零配置，自动获得一个 <b>*.trycloudflare.com</b> 公网地址，朋友跨网络直接连。<br>
+      绑域名：在 Cloudflare 创建隧道并把 Token 与 hostname 填上方，域名即指向本服务器。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>服务器列表（可连接其他服务器）</h2>
+    <div class="btns"><button onclick="loadServers()">刷新列表</button></div>
+    <ul class="players" id="srvList"><li style="color:var(--mut)">加载中…</li></ul>
+    <label>添加服务器</label>
+    <input id="addName" placeholder="名称，如 我的好友服">
+    <input id="addURL" placeholder="地址，如 wss://example.com 或 ws://1.2.3.4:8080">
+    <div class="btns"><button class="green" onclick="addServer()">添加</button></div>
+  </div>
 </div>
 
 <script>
@@ -117,6 +146,10 @@ async function load(){
   $("setName").value = d.serverName||""; $("setMotd").value = d.motd||"";
   $("setMax").value = d.maxPlayers||50; $("setPort").value = d.port;
   $("autoChk").checked = !!d.autostart;
+  // 隧道状态
+  $("tnStatus").textContent = d.tunnelStatus || "idle";
+  $("tnStatus").style.color = (d.tunnelStatus === "running") ? "var(--green)" : (d.tunnelStatus === "error" ? "var(--red)" : "var(--mut)");
+  $("tnURL").textContent = d.tunnelURL || "未开启";
   // players
   const ul = $("plist");
   if(d.playerList && d.playerList.length){
@@ -144,7 +177,38 @@ async function loadLogs(){
   if(d.ok){ const txt = d.logs.join("\n"); if(txt!==lastLogs){ lastLogs=txt; const el=$("logs"); el.textContent=txt; el.scrollTop=el.scrollHeight; } }
 }
 function escapeHtml(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-load(); loadLogs();
+async function startQuick(){
+  const d = await api("/api/tunnel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"start_quick"})});
+  if(d.ok){ alert(d.publicURL ? ("快速隧道已开启：\n"+d.publicURL) : "正在开启隧道，请稍候在「公网地址」处刷新查看"); }
+  else alert(d.msg||"开启失败");
+  load(); loadServers();
+}
+async function stopTunnel(){
+  await api("/api/tunnel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"stop"})});
+  load(); loadServers();
+}
+async function startNamed(){
+  const d = await api("/api/tunnel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"start_named",token:$("tnToken").value,hostname:$("tnHost").value})});
+  if(d.ok) alert("命名隧道已启动，域名：\n"+d.publicURL); else alert(d.msg||"启动失败");
+  load(); loadServers();
+}
+async function loadServers(){
+  const d = await api("/api/servers");
+  if(!d.ok) return;
+  const ul = $("srvList");
+  if(d.servers && d.servers.length){
+    ul.innerHTML = d.servers.map(s=>{
+      const u = (s.url||"").replace(/'/g,"\\'");
+      return `<li style="cursor:pointer" onclick="copyURL('${u}')" title="点击复制地址"><span class="sw" style="background:#3498db"></span>${escapeHtml(s.name)} <span class="pill">${escapeHtml(s.url)}</span>${s.note?` <span class="pill">${escapeHtml(s.note)}</span>`:""}</li>`;
+    }).join("");
+  } else ul.innerHTML = '<li style="color:var(--mut)">暂无服务器</li>';
+}
+async function addServer(){
+  const d = await api("/api/servers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:$("addName").value,url:$("addURL").value})});
+  if(d.ok){ $("addName").value=""; $("addURL").value=""; loadServers(); } else alert(d.msg||"添加失败");
+}
+function copyURL(u){ if(u){ navigator.clipboard.writeText(u).then(()=>{}); } }
+load(); loadLogs(); loadServers();
 setInterval(load, 2000);
 setInterval(loadLogs, 2000);
 </script>
