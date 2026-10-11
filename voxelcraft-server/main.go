@@ -50,6 +50,17 @@ func main() {
 	// 游戏服务器
 	gs = NewGameServer(*port, appDataDir)
 	gs.loadConfig()
+	// 若用户在命令行显式指定了端口，则以命令行端口为准（覆盖配置文件）
+	userPortSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "port" {
+			userPortSet = true
+		}
+	})
+	if userPortSet {
+		gs.port = *port
+	}
+	tunnelMgr = NewTunnelManager(gs.port, appDataDir)
 
 	// 自启动管理（独立动作，执行后退出）
 	if *installAS {
