@@ -18,7 +18,7 @@ import (
 // 未知消息类型直接忽略或透传。这样无论更老、当前还是未来的客户端都能联机且不崩溃。
 const (
 	protocolVersion = 1      // 当前服务端网络协议版本
-	serverVersion   = "2.1.0" // 服务端软件版本
+	serverVersion   = "2.2.0" // 服务端软件版本
 	minClientProto  = 1      // 兼容的最低客户端协议版本
 	gameCompat      = "1.0.0+"
 	tickRate        = 50 * time.Millisecond
@@ -150,6 +150,9 @@ func (s *GameServer) handler() http.Handler {
 	mux.HandleFunc("/api/players", s.apiPlayers)
 	mux.HandleFunc("/api/settings", s.apiSettings)
 	mux.HandleFunc("/api/autostart", s.apiAutostart)
+	mux.HandleFunc("/api/tunnel", s.apiTunnel)
+	mux.HandleFunc("/api/servers", s.apiServers)
+	mux.HandleFunc("/api/dns", s.apiDNS)
 	return mux
 }
 
@@ -383,27 +386,53 @@ func (s *GameServer) sendPublicInit(c *client) {
 func (s *GameServer) handleWS(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	s.mu.Lock()
-	username, ok := s.tokens[token]
 	running := s.running
 	s.mu.Unlock()
-	if !ok || username == "" {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("401 Unauthorized"))
-		return
-	}
 	if !running {
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("403 Server stopped"))
 		return
 	}
+
+	// 鉴权：有效 token -> 已注册账号；否则兼容老客户端以游客身份直连（token=direct/local/guest 或无 token）
+	s.mu.Lock()
+	var username string
+	var authed bool
+	if token != "" {
+		if u, ok := s.tokens[token]; ok && u != "" {
+			username = u
+			authed = true
+		}
+	}
+	s.mu.Unlock()
+
+	isGuest := false
+	if !authed {
+		t := strings.TrimSpace(strings.ToLower(token))
+		if token == "" || t == "direct" || t == "local" || t == "guest" {
+			isGuest = true
+			username = "guest_" + randToken()[:10]
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("401 Unauthorized"))
+			return
+		}
+	}
+
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
 	s.mu.Lock()
-	user := s.users[username]
-	if user == nil {
-		user = &User{Username: username, Name: username}
+	var user *User
+	if isGuest {
+		// 游客：不落盘，随机昵称，仅用于本局游戏
+		user = &User{Username: username, Name: "游客" + randToken()[:4]}
+	} else {
+		user = s.users[username]
+		if user == nil {
+			user = &User{Username: username, Name: username}
+		}
 	}
 	id := s.nextID
 	s.nextID++
